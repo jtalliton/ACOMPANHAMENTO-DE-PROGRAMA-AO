@@ -8,7 +8,7 @@ import {
   FileSpreadsheet, RefreshCw, Calendar, CheckCircle2,
   Clock3, AlertCircle, Users, LayoutGrid, CalendarDays,
   Sun, Moon, Trash2, Lock, Bell, Radio, 
-  ShieldCheck, AlertTriangle
+  ShieldCheck, MessageCircleAlert, X
 } from 'lucide-react'
 
 interface OS {
@@ -70,6 +70,29 @@ const DIAS_NOMES: Record<string, string> = {
 }
 
 const SENHA_MESTRA = 'tomate'
+
+// FUNÇÕES AUXILIARES FORA DO COMPONENTE PARA EVITAR ERROS DE TERNÁRIO NO SWC
+function getStatusClass(status: string, tema: 'dark' | 'light'): string {
+  if (status === 'CONCLUIDO') {
+    return tema === 'dark'
+      ? 'border-emerald-500/50 bg-emerald-950/20 text-emerald-400'
+      : 'border-emerald-500 bg-emerald-50 text-emerald-900';
+  }
+  if (status === 'REPROGRAMADA') {
+    return tema === 'dark'
+      ? 'border-rose-500/50 bg-rose-950/20 text-rose-400'
+      : 'border-rose-500 bg-rose-50 text-rose-900';
+  }
+  return tema === 'dark'
+    ? 'border-amber-500/50 bg-amber-950/20 text-amber-400'
+    : 'border-amber-500 bg-amber-50 text-amber-900';
+}
+
+function getDisciplinaResumo(disciplina: string): string {
+  if (disciplina === 'ELETRICA_AUTOMACAO') return 'ELÉTRICA/AUT.';
+  if (disciplina === 'MECANICA') return 'MECÂNICA';
+  return 'TERCEIROS';
+}
 
 export default function AppPCM() {
   const supabase = createClient()
@@ -628,7 +651,7 @@ export default function AppPCM() {
                     onClick={() => setModalApontamentos(true)}
                     className="flex items-center gap-1.5 bg-blue-600 text-white font-extrabold px-3 py-1 rounded-lg text-xs shadow-md hover:bg-blue-500 transition"
                   >
-                    <Bell className="h-4 w-4 text-amber-300" />
+                    <MessageCircleAlert className="h-4 w-4 text-amber-300" />
                     <span>{ordensComApontamento.length} Alterações / Apontamentos</span>
                   </button>
                 )}
@@ -855,7 +878,7 @@ export default function AppPCM() {
           <div className={`${bgCard} rounded-xl max-w-2xl w-full p-5 border shadow-2xl max-h-[85vh] flex flex-col`}>
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-sm font-black flex items-center gap-2">
-                <Bell className="h-5 w-5 text-amber-500 animate-pulse" />
+                <MessageCircleAlert className="h-5 w-5 text-blue-500" />
                 Alterações e Apontamentos dos Técnicos ({ordensComApontamento.length})
               </h3>
               <button onClick={() => setModalApontamentos(false)} className="text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
@@ -1095,7 +1118,7 @@ export default function AppPCM() {
         </div>
       )}
 
-      {/* MODAL GERENCIAR PENDÊNCIAS */}
+      {/* MODAL GERENCIAR */}
       {modalGerenciarPendencias && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className={`${bgCard} rounded-xl max-w-xl w-full p-5 border shadow-2xl max-h-[90vh] flex flex-col`}>
@@ -1172,16 +1195,8 @@ export default function AppPCM() {
 }
 
 function CartaoOS({ os, tema, onToggle, onComment }: { os: OS, tema: 'dark' | 'light', onToggle: (os: OS) => void, onComment: (os: OS) => void }) {
-  const statusColor = 
-    os.status === 'CONCLUIDO' 
-      ? (tema === 'dark' ? 'border-emerald-500/50 bg-emerald-950/20 text-emerald-400' : 'border-emerald-500 bg-emerald-50 text-emerald-900') :
-    os.status === 'REPROGRAMADA' 
-      ? (tema === 'dark' ? 'border-rose-500/50 bg-rose-950/20 text-rose-400' : 'border-rose-500 bg-rose-50 text-rose-900') :
-      (tema === 'dark' ? 'border-amber-500/50 bg-amber-950/20 text-amber-400' : 'border-amber-500 bg-amber-50 text-amber-900')
-
-  const discResumo = 
-    os.disciplina === 'ELETRICA_AUTOMACAO' ? 'ELÉTRICA/AUT.' :
-    os.disciplina === 'MECANICA' ? 'MECÂNICA' : 'TERCEIROS'
+  const statusColor = getStatusClass(os.status, tema);
+  const discResumo = getDisciplinaResumo(os.disciplina);
 
   return (
     <div className={`border rounded-xl p-2.5 shadow-sm flex flex-col justify-between gap-2 transition-all ${statusColor}`}>
@@ -1218,4 +1233,22 @@ function CartaoOS({ os, tema, onToggle, onComment }: { os: OS, tema: 'dark' | 'l
             {os.status === 'CONCLUIDO' && <CheckCircle2 className="h-3 w-3" />}
             {os.status === 'REPROGRAMADA' && <AlertCircle className="h-3 w-3" />}
             {os.status === 'EM_ANDAMENTO' && <Clock3 className="h-3 w-3" />}
-            <span>{os.status.replace('_', 
+            <span>{os.status.replace('_', ' ')}</span>
+          </button>
+
+          <button
+            onClick={() => onComment(os)}
+            className={`p-1 rounded-lg border ${
+              os.comentarios 
+                ? 'bg-blue-600 text-white border-blue-700' 
+                : 'text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700'
+            }`}
+            title="Adicionar Apontamento / Comentário"
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
