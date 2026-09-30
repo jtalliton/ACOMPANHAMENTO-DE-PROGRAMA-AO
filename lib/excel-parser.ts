@@ -48,16 +48,13 @@ const DIAS_CHAVE = [
   { chave: 'sa', dia: 'SAB', offset: 6 },
 ]
 
-function getWeekNumber(d: Date): number {
-  const target = new Date(d.valueOf())
-  const dayNr = (d.getDay() + 6) % 7
-  target.setDate(target.getDate() - dayNr + 3)
-  const firstThursday = target.valueOf()
-  target.setMonth(0, 1)
-  if (target.getDay() !== 4) {
-    target.setMonth(0, 1 + ((4 - target.getDay() + 7) % 7))
-  }
-  return 1 + Math.round((firstThursday - target.valueOf()) / 604800000)
+// Cálculo oficial do número da semana no ano (Domingo como início)
+export function getWeekNumber(d: Date): number {
+  const date = new Date(d.getTime())
+  date.setHours(0, 0, 0, 0)
+  const startOfYear = new Date(date.getFullYear(), 0, 1)
+  const pastDaysOfYear = (date.getTime() - startOfYear.getTime()) / 86400000
+  return Math.ceil((pastDaysOfYear + startOfYear.getDay() + 1) / 7)
 }
 
 export function processarExcel(binaryData: any): ResultadoParse {
@@ -73,7 +70,7 @@ export function processarExcel(binaryData: any): ResultadoParse {
     }
   }
 
-  // 1. Extrair Área e Supervisor da Linha 3
+  // 1. Extrair Área, Supervisor e Data das linhas iniciais
   let area_linha = 'Primário'
   let supervisor = 'Johnathan'
   let dataInicioPlanilha: Date | null = null
@@ -115,7 +112,6 @@ export function processarExcel(binaryData: any): ResultadoParse {
 
   const numSemanaPlanilha = getWeekNumber(domingoBase)
 
-  // Comparação dinâmica real
   let tipo_semana: 'PASSADA' | 'VIGENTE' | 'PROXIMA' = 'VIGENTE'
   if (domingoBase.getTime() < domingoHojeReal.getTime() - 86400000) {
     tipo_semana = 'PASSADA'
@@ -125,7 +121,7 @@ export function processarExcel(binaryData: any): ResultadoParse {
 
   const primeiroNomeSupervisor = supervisor.split(' ')[0].trim().toLowerCase() || 'johnathan'
 
-  // 2. Localizar Linha do Cabeçalho
+  // 2. Encontrar Linha de Cabeçalho das Colunas
   let headerIndex = -1
   for (let i = 0; i < Math.min(rows.length, 15); i++) {
     const rowStr = (rows[i] || []).map(c => String(c || '').toLowerCase()).join(' ')
