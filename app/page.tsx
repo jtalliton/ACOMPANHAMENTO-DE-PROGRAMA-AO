@@ -8,7 +8,7 @@ import {
   FileSpreadsheet, RefreshCw, Calendar, CheckCircle2,
   Clock3, AlertCircle, Users, LayoutGrid, CalendarDays,
   Sun, Moon, Trash2, Lock, Bell, Send, Check, X,
-  Radio
+  Radio, MessageCircleAlert, ChevronLeft, ChevronRight
 } from 'lucide-react'
 
 interface OS {
@@ -102,6 +102,9 @@ export default function AppPCM() {
   const [senhaInput, setSenhaInput] = useState('')
 
   const [modalNovaPendencia, setModalNovaPendencia] = useState(false)
+  const [modalApontamentos, setModalApontamentos] = useState(false)
+  const [modalConsultorAgenda, setModalConsultorAgenda] = useState(false)
+
   const [formPendencia, setFormPendencia] = useState({
     tecnico_responsavel: '',
     tipo_pendencia: 'ATIVIDADE' as 'ATIVIDADE' | 'FOLGA' | 'AVISO',
@@ -200,6 +203,10 @@ export default function AppPCM() {
     return pendencias.filter(p => p.status === 'PENDENTE_APROVACAO' && (areaFiltro === 'TODAS' || p.area_linha === areaFiltro))
   }, [pendencias, areaFiltro])
 
+  const ordensComApontamento = useMemo(() => {
+    return ordensFiltradas.filter(o => (o.comentarios && o.comentarios.trim().length > 0) || o.status === 'REPROGRAMADA')
+  }, [ordensFiltradas])
+
   const mensagensDoTecnico = useMemo(() => {
     if (tecnicoFiltro === 'TODOS') return []
     return mensagens.filter(m => m.destinatario === tecnicoFiltro && !m.lida)
@@ -281,7 +288,6 @@ export default function AppPCM() {
     e.target.value = ''
   }
 
-  // IMPORTAÇÃO EM LOTES DE 100 PARA 500+ ORDENS NÃO TRAVAREMA
   const executarImportacao = async (parse: ResultadoParse) => {
     setLoading(true)
 
@@ -521,7 +527,7 @@ export default function AppPCM() {
         </div>
       </header>
 
-      {/* FILTROS */}
+      {/* FILTROS E ALERTAS */}
       <div className={`${bgHeader} border-b px-4 py-2 backdrop-blur`}>
         <div className="max-w-7xl mx-auto flex flex-wrap gap-2.5 items-center justify-between">
           
@@ -570,6 +576,8 @@ export default function AppPCM() {
           </div>
 
           <div className="flex items-center gap-2">
+            
+            {/* ALERTA 1: PENDÊNCIAS DE SOLICITAÇÃO FUTURA */}
             {pendenciasAguardando.length > 0 && (
               <button
                 onClick={() => setModalGerenciarPendencias(true)}
@@ -580,12 +588,33 @@ export default function AppPCM() {
               </button>
             )}
 
+            {/* ALERTA 2: APONTAMENTOS / JUSTIFICATIVAS DOS TÉCNICOS */}
+            {ordensComApontamento.length > 0 && (
+              <button
+                onClick={() => setModalApontamentos(true)}
+                className="flex items-center gap-1.5 bg-blue-600 text-white font-extrabold px-3 py-1 rounded-lg text-xs shadow-md hover:bg-blue-500 transition"
+              >
+                <MessageCircleAlert className="h-4 w-4" />
+                <span>{ordensComApontamento.length} Apontamentos de Campo</span>
+              </button>
+            )}
+
+            {/* BOTÃO CONSULTAR AGENDA FUTURA */}
             <button
-              onClick={() => setModalNovaPendencia(true)}
-              className="flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm"
+              onClick={() => setModalConsultorAgenda(true)}
+              className="flex items-center gap-1 bg-purple-700 hover:bg-purple-600 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm"
+              title="Consultar Eventos Futuros no Calendário"
             >
               <Calendar className="h-3.5 w-3.5" />
-              <span>+ Solicitação Futura</span>
+              <span>Agenda Futura</span>
+            </button>
+
+            <button
+              onClick={() => setModalNovaPendencia(true)}
+              className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm"
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              <span>+ Solicitação</span>
             </button>
 
             <div className={`flex p-1 rounded-lg border ${tema === 'dark' ? 'bg-slate-950 border-slate-800' : 'bg-slate-100 border-slate-300'}`}>
@@ -663,9 +692,9 @@ export default function AppPCM() {
               <p className="text-xl sm:text-2xl font-black text-emerald-500 mt-0.5">{kpiDiasAtivos} <span className="text-xs font-normal text-slate-400">dias</span></p>
             </div>
             <button 
-              onClick={() => setModalNovaPendencia(true)}
+              onClick={() => setModalConsultorAgenda(true)}
               className="bg-emerald-500/10 hover:bg-emerald-500/20 p-2 rounded-lg text-emerald-500 border border-emerald-500/20 transition cursor-pointer"
-              title="Abrir Agenda Colaborativa"
+              title="Consultar Agenda Futura"
             >
               <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
@@ -704,17 +733,17 @@ export default function AppPCM() {
         </nav>
       )}
 
-      {/* CARDS */}
-      <main className="max-w-7xl w-full mx-auto px-4 mt-3">
+      {/* GRADE PRINCIPAL DE CARDS COM LARGURA MÍNIMA GARANTIDA NO PC */}
+      <main className="max-w-7xl w-full mx-auto px-4 mt-3 overflow-x-auto custom-scrollbar">
         {modoVisao === 'SEMANA' ? (
-          <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
+          <div className="grid grid-cols-7 gap-3 min-w-[1150px] lg:min-w-0">
             {DIAS_ORDEM.map(dia => {
               const ordensDia = ordensFiltradas.filter(o => o.dia_semana === dia)
               const dataFormatada = mapaDatasDias[dia] || ''
 
               return (
                 <div key={dia} className={`${bgCard} rounded-xl flex flex-col min-h-[500px]`}>
-                  <div className={`p-2 border-b flex justify-between items-center rounded-t-xl ${tema === 'dark' ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-slate-100'}`}>
+                  <div className={`p-2 border-b flex justify-between items-center rounded-t-xl ${tema === 'dark' ? 'border-slate-800 bg-slate-900' : 'border-slate-300 bg-slate-100'}`}>
                     <div>
                       <span className="text-xs font-black uppercase tracking-wider">{DIAS_NOMES[dia]}</span>
                       {dataFormatada && <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold ml-1">({dataFormatada})</span>}
@@ -773,13 +802,121 @@ export default function AppPCM() {
               rows={4}
               value={textoComentario}
               onChange={(e) => setTextoComentario(e.target.value)}
-              placeholder="Digite o apontamento de campo, peças utilizadas ou pendências..."
+              placeholder="Digite o apontamento de campo, peças utilizadas ou justificativa de reprogramação..."
               className={`w-full ${bgInput} rounded-lg p-3 text-xs focus:outline-none focus:border-blue-500 mb-4 resize-none`}
             />
 
             <div className="flex justify-end gap-2">
               <button onClick={() => setOsModal(null)} className="px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-slate-600">Cancelar</button>
               <button onClick={salvarComentario} className="px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 font-bold text-white rounded-lg shadow">Salvar Apontamento</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PAINEL DE APONTAMENTOS DO SUPERVISOR */}
+      {modalApontamentos && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className={`${bgCard} rounded-xl max-w-2xl w-full p-5 border shadow-2xl max-h-[85vh] flex flex-col`}>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-black flex items-center gap-2">
+                <MessageCircleAlert className="h-5 w-5 text-blue-500" />
+                Apontamentos e Reprogramações dos Técnicos ({ordensComApontamento.length})
+              </h3>
+              <button onClick={() => setModalApontamentos(false)} className="text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
+              {ordensComApontamento.map(o => (
+                <div key={o.id} className={`p-3 border rounded-xl space-y-1 ${
+                  o.status === 'REPROGRAMADA' ? 'border-rose-500/40 bg-rose-950/10' : 'border-blue-500/40 bg-blue-950/10'
+                }`}>
+                  <div className="flex justify-between items-start">
+                    <span className="text-xs font-black text-blue-600 dark:text-blue-400">
+                      WO {o.numero_os} {o.numero_operacao ? `• Op ${o.numero_operacao}` : ''} ({o.dia_semana})
+                    </span>
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded ${
+                      o.status === 'REPROGRAMADA' ? 'bg-rose-600 text-white' : 'bg-emerald-600 text-white'
+                    }`}>
+                      {o.status}
+                    </span>
+                  </div>
+                  <p className="text-xs font-bold">👤 {o.tecnico_nome} • Área: {o.area_linha}</p>
+                  <p className="text-xs opacity-90">{o.descricao}</p>
+                  {o.comentarios && (
+                    <div className="mt-2 p-2 bg-slate-900/60 rounded border border-slate-800 text-xs italic text-amber-300">
+                      💬 Apontamento: "{o.comentarios}"
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-slate-200 dark:border-slate-800 mt-2">
+              <button onClick={() => setModalApontamentos(false)} className="px-4 py-1.5 text-xs font-bold bg-blue-600 text-white rounded-lg">Fechar Painel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CONSULTOR DE AGENDA FUTURA COM MARCADORES COLORIDOS */}
+      {modalConsultorAgenda && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className={`${bgCard} rounded-xl max-w-2xl w-full p-5 border shadow-2xl max-h-[90vh] flex flex-col`}>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-black flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-purple-500" />
+                Consultor de Agenda Futura
+              </h3>
+              <button onClick={() => setModalConsultorAgenda(false)} className="text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
+            </div>
+
+            <div className="flex items-center gap-3 text-[10px] font-bold pb-2 border-b border-slate-200 dark:border-slate-800 mb-3">
+              <span className="flex items-center gap-1 text-blue-500">🔵 Atividade Preventiva/Corretiva</span>
+              <span className="flex items-center gap-1 text-amber-500">🎂 Folga / Aniversário / Exame</span>
+              <span className="flex items-center gap-1 text-purple-500">📢 Aviso / Compromisso</span>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
+              {pendencias
+                .filter(p => areaFiltro === 'TODAS' || p.area_linha === areaFiltro)
+                .map(p => (
+                  <div key={p.id} className={`p-3 border rounded-xl space-y-1.5 ${
+                    p.tipo_pendencia === 'FOLGA' ? 'border-amber-500/40 bg-amber-950/10' :
+                    p.tipo_pendencia === 'AVISO' ? 'border-purple-500/40 bg-purple-950/10' :
+                    'border-blue-500/40 bg-blue-950/10'
+                  }`}>
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded bg-slate-800 text-white">
+                          {p.tipo_pendencia === 'FOLGA' ? '🎂 FOLGA/ANIVERSÁRIO' : p.tipo_pendencia === 'AVISO' ? '📢 AVISO' : '🛠️ ATIVIDADE'}
+                        </span>
+                        <span className="text-xs font-bold text-slate-400">Data: {p.data_proposta}</span>
+                      </div>
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded ${
+                        p.status === 'APROVADA' ? 'bg-emerald-600 text-white' :
+                        p.status === 'REJEITADA' ? 'bg-rose-600 text-white' : 'bg-amber-500 text-slate-950'
+                      }`}>
+                        {p.status.replace('_', ' ')}
+                      </span>
+                    </div>
+
+                    <p className="text-xs font-black">👤 {p.tecnico_responsavel} • Área: {p.area_linha}</p>
+                    <p className="text-xs opacity-90">{p.descricao}</p>
+                    {p.tag_equipamento && <p className="text-[10px] font-bold text-amber-500">TAG: {p.tag_equipamento}</p>}
+                    {p.numero_os && <p className="text-[10px] font-bold text-blue-400">OS Vinculada: {p.numero_os}</p>}
+                  </div>
+                ))}
+
+              {pendencias.filter(p => areaFiltro === 'TODAS' || p.area_linha === areaFiltro).length === 0 && (
+                <div className="p-8 text-center text-slate-500 text-xs font-bold">
+                  Nenhuma atividade ou folga futura agendada para esta área.
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-slate-200 dark:border-slate-800 mt-2">
+              <button onClick={() => setModalConsultorAgenda(false)} className="px-4 py-1.5 text-xs font-bold bg-purple-600 text-white rounded-lg">Fechar Agenda</button>
             </div>
           </div>
         </div>
@@ -921,7 +1058,7 @@ export default function AppPCM() {
         </div>
       )}
 
-      {/* MODAL GERENCIAR */}
+      {/* MODAL GERENCIAR PENDÊNCIAS */}
       {modalGerenciarPendencias && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className={`${bgCard} rounded-xl max-w-xl w-full p-5 border shadow-2xl max-h-[90vh] flex flex-col`}>
@@ -1000,20 +1137,20 @@ export default function AppPCM() {
 function CartaoOS({ os, tema, onToggle, onComment }: { os: OS, tema: 'dark' | 'light', onToggle: (os: OS) => void, onComment: (os: OS) => void }) {
   const statusColor = 
     os.status === 'CONCLUIDO' 
-      ? (tema === 'dark' ? 'border-emerald-500/50 bg-emerald-950/20 text-emerald-400' : 'border-emerald-500 bg-emerald-50 text-emerald-800') :
+      ? (tema === 'dark' ? 'border-emerald-500/50 bg-emerald-950/20 text-emerald-400' : 'border-emerald-500 bg-emerald-50 text-emerald-900') :
     os.status === 'REPROGRAMADA' 
-      ? (tema === 'dark' ? 'border-rose-500/50 bg-rose-950/20 text-rose-400' : 'border-rose-500 bg-rose-50 text-rose-800') :
-      (tema === 'dark' ? 'border-amber-500/50 bg-amber-950/20 text-amber-400' : 'border-amber-500 bg-amber-50 text-amber-800')
+      ? (tema === 'dark' ? 'border-rose-500/50 bg-rose-950/20 text-rose-400' : 'border-rose-500 bg-rose-50 text-rose-900') :
+      (tema === 'dark' ? 'border-amber-500/50 bg-amber-950/20 text-amber-400' : 'border-amber-500 bg-amber-50 text-amber-900')
 
   const discResumo = 
     os.disciplina === 'ELETRICA_AUTOMACAO' ? 'ELÉTRICA/AUT.' :
     os.disciplina === 'MECANICA' ? 'MECÂNICA' : 'TERCEIROS'
 
   return (
-    <div className={`border rounded-xl p-3 shadow-sm flex flex-col justify-between gap-2 transition-all ${statusColor}`}>
+    <div className={`border rounded-xl p-2.5 shadow-sm flex flex-col justify-between gap-2 transition-all ${statusColor}`}>
       <div>
-        <div className="flex items-center justify-between gap-1 mb-1.5 overflow-hidden">
-          <span className="text-xs sm:text-sm font-black text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/90 px-2 py-0.5 rounded border border-blue-300 dark:border-blue-800/60 tracking-wider whitespace-nowrap overflow-hidden text-ellipsis">
+        <div className="flex items-center justify-between gap-1 mb-1 overflow-hidden">
+          <span className="text-xs sm:text-sm font-black text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/90 px-1.5 py-0.5 rounded border border-blue-300 dark:border-blue-800/60 tracking-wider whitespace-nowrap">
             WO {os.numero_os} {os.numero_operacao ? `• Op ${os.numero_operacao}` : ''}
           </span>
           <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
@@ -1021,38 +1158,42 @@ function CartaoOS({ os, tema, onToggle, onComment }: { os: OS, tema: 'dark' | 'l
           </span>
         </div>
 
-        <p className="text-xs font-extrabold text-slate-800 dark:text-slate-100 truncate">{os.area_linha || os.area}</p>
-        <p className="text-xs text-slate-700 dark:text-slate-300 leading-snug line-clamp-2 mt-0.5">{os.descricao}</p>
+        <p className="text-xs font-black text-slate-900 dark:text-slate-100 truncate">{os.area_linha || os.area}</p>
+        <p className="text-[11px] text-slate-800 dark:text-slate-300 leading-snug line-clamp-2 mt-0.5">{os.descricao}</p>
         {os.sub_operacao && <p className="text-[10px] text-slate-500 italic truncate mt-0.5">Op: {os.sub_operacao}</p>}
       </div>
 
       <div className="pt-2 border-t border-slate-300 dark:border-slate-800/80 flex flex-col gap-1.5">
-        <div className="flex justify-between items-center text-[10px] text-slate-500 dark:text-slate-400">
-          <span className="font-bold text-slate-800 dark:text-slate-300 truncate max-w-[130px]">👤 {os.tecnico_nome}</span>
+        <div className="flex justify-between items-center text-[10px] text-slate-600 dark:text-slate-400">
+          <span className="font-bold text-slate-900 dark:text-slate-300 truncate max-w-[120px]">👤 {os.tecnico_nome}</span>
           <span className="flex items-center gap-1 font-black text-amber-600 dark:text-amber-400"><Clock className="h-3 w-3" />{os.tempo_estimado}h</span>
         </div>
 
-        <div className="flex items-center justify-between gap-1.5">
+        <div className="flex items-center justify-between gap-1">
           <button
             onClick={() => onToggle(os)}
-            className={`flex-1 flex items-center justify-center gap-1 text-[11px] font-black py-1.5 px-2 rounded-lg transition shadow-sm ${
+            className={`flex-1 flex items-center justify-center gap-1 text-[10px] font-black py-1 px-1.5 rounded-lg transition shadow-sm ${
               os.status === 'CONCLUIDO' ? 'bg-emerald-600 text-white' :
               os.status === 'REPROGRAMADA' ? 'bg-rose-600 text-white' :
               'bg-amber-600 text-white'
             }`}
           >
-            {os.status === 'CONCLUIDO' && <CheckCircle2 className="h-3.5 w-3.5" />}
-            {os.status === 'REPROGRAMADA' && <AlertCircle className="h-3.5 w-3.5" />}
-            {os.status === 'EM_ANDAMENTO' && <Clock3 className="h-3.5 w-3.5" />}
+            {os.status === 'CONCLUIDO' && <CheckCircle2 className="h-3 w-3" />}
+            {os.status === 'REPROGRAMADA' && <AlertCircle className="h-3 w-3" />}
+            {os.status === 'EM_ANDAMENTO' && <Clock3 className="h-3 w-3" />}
             <span>{os.status.replace('_', ' ')}</span>
           </button>
 
           <button
             onClick={() => onComment(os)}
-            className="p-1.5 rounded-lg text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700"
+            className={`p-1 rounded-lg border ${
+              os.comentarios 
+                ? 'bg-blue-600 text-white border-blue-700' 
+                : 'text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700'
+            }`}
             title="Adicionar Apontamento / Comentário"
           >
-            <MessageSquare className="h-4 w-4" />
+            <MessageSquare className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
