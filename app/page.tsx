@@ -7,8 +7,8 @@ import {
   Wrench, Clock, Filter, MessageSquare, 
   FileSpreadsheet, RefreshCw, Calendar, CheckCircle2,
   Clock3, AlertCircle, Users, LayoutGrid, CalendarDays,
-  Sun, Moon, Trash2, Lock, Bell, Send, Check, X,
-  Radio, MessageCircleAlert, ShieldCheck, ShieldAlert
+  Sun, Moon, Trash2, Lock, Bell, Radio, 
+  ShieldCheck, AlertTriangle
 } from 'lucide-react'
 
 interface OS {
@@ -80,7 +80,6 @@ export default function AppPCM() {
   const [loading, setLoading] = useState(true)
   const [isLive, setIsLive] = useState(true)
 
-  // MODO DE PERFIL (TECNICO vs SUPERVISOR)
   const [modoPerfil, setModoPerfil] = useState<'TECNICO' | 'SUPERVISOR'>('TECNICO')
   const [tema, setTema] = useState<'dark' | 'light'>('dark')
 
@@ -172,7 +171,6 @@ export default function AppPCM() {
   const areasLista = useMemo(() => Array.from(new Set(ordens.map(o => o.area_linha || 'Primário'))).filter(Boolean).sort(), [ordens])
   const tecnicosLista = useMemo(() => Array.from(new Set(ordens.map(o => o.tecnico_nome))).filter(Boolean).sort(), [ordens])
 
-  // CÁLCULO DE NÚMERO DA SEMANA CORRIGIDO (OFICIAL W40)
   const numeroSemanaExibida = useMemo(() => {
     const dasSemanas = ordens.filter(o => o.tipo_semana === semanaAtiva)
     if (dasSemanas.length > 0 && dasSemanas[0].data_programada) {
@@ -207,7 +205,6 @@ export default function AppPCM() {
     return pendencias.filter(p => p.status === 'PENDENTE_APROVACAO' && (areaFiltro === 'TODAS' || p.area_linha === areaFiltro))
   }, [pendencias, areaFiltro])
 
-  // APONTAMENTOS DE CAMPO: DISPARA EM QUALQUER ALTERAÇÃO NA OS (STATUS DIVERGENTE DE EM_ANDAMENTO OU COMENTÁRIO)
   const ordensComApontamento = useMemo(() => {
     return ordensFiltradas.filter(o => o.status !== 'EM_ANDAMENTO' || (o.comentarios && o.comentarios.trim().length > 0))
   }, [ordensFiltradas])
@@ -266,33 +263,6 @@ export default function AppPCM() {
     else alert('Erro ao salvar comentário: ' + error.message)
   }
 
-  const handleArquivoExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    const reader = new FileReader()
-    reader.onload = async (evt) => {
-      const binaryStr = evt.target?.result
-      const parse = processarExcel(binaryStr)
-
-      if (parse.ordens.length === 0) {
-        alert('Nenhuma Ordem de Serviço encontrada na planilha.')
-        return
-      }
-
-      setModalSenha({
-        aberto: true,
-        titulo: `Importar ${parse.ordens.length} Ordens (${parse.meta.tipo_semana})`,
-        senhaEsperada: parse.meta.senha_supervisor,
-        acao: async () => {
-          await executarImportacao(parse)
-        }
-      })
-    }
-    reader.readAsBinaryString(file)
-    e.target.value = ''
-  }
-
   const executarImportacao = async (parse: ResultadoParse) => {
     setLoading(true)
 
@@ -323,6 +293,33 @@ export default function AppPCM() {
       carregarDados()
     }
     setLoading(false)
+  }
+
+  const handleArquivoExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = async (evt) => {
+      const binaryStr = evt.target?.result
+      const parse = processarExcel(binaryStr)
+
+      if (parse.ordens.length === 0) {
+        alert('Nenhuma Ordem de Serviço encontrada na planilha.')
+        return
+      }
+
+      setModalSenha({
+        aberto: true,
+        titulo: `Importar ${parse.ordens.length} Ordens (${parse.meta.tipo_semana})`,
+        senhaEsperada: parse.meta.senha_supervisor,
+        acao: async () => {
+          await executarImportacao(parse)
+        }
+      })
+    }
+    reader.readAsBinaryString(file)
+    e.target.value = ''
   }
 
   const solicitarLimparSemana = () => {
@@ -501,10 +498,8 @@ export default function AppPCM() {
             ))}
           </div>
 
-          {/* BOTÕES DE AÇÃO + CHAVE MODO TÉCNICO / MODO SUPERVISOR */}
           <div className="flex items-center gap-2">
             
-            {/* BOTÃO DE ALTERNÂNCIA MODO TÉCNICO vs MODO SUPERVISOR COM SENHA */}
             <button
               onClick={() => {
                 if (modoPerfil === 'SUPERVISOR') {
@@ -540,7 +535,6 @@ export default function AppPCM() {
               {tema === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
 
-            {/* BOTÕES DE IMPORTAR E LIMPAR VISÍVEIS APENAS NO MODO SUPERVISOR */}
             {modoPerfil === 'SUPERVISOR' && (
               <>
                 <label className="cursor-pointer flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-600 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold transition shadow-sm">
@@ -567,7 +561,7 @@ export default function AppPCM() {
         </div>
       </header>
 
-      {/* FILTROS E ALERTAS DO SUPERVISOR */}
+      {/* FILTROS E ALERTAS */}
       <div className={`${bgHeader} border-b px-4 py-2 backdrop-blur`}>
         <div className="max-w-7xl mx-auto flex flex-wrap gap-2.5 items-center justify-between">
           
@@ -615,13 +609,10 @@ export default function AppPCM() {
             </div>
           </div>
 
-          {/* PAINÉIS DE ALERTA EXCLUSIVOS DO SUPERVISOR */}
           <div className="flex items-center gap-2">
             
-            {/* ALERTAS EXIBIDOS APENAS QUANDO MODO SUPERVISOR ESTIVER ATIVO */}
             {modoPerfil === 'SUPERVISOR' && (
               <>
-                {/* ALERTA 1: PENDÊNCIAS DE SOLICITAÇÃO FUTURA */}
                 {pendenciasAguardando.length > 0 && (
                   <button
                     onClick={() => setModalGerenciarPendencias(true)}
@@ -632,18 +623,16 @@ export default function AppPCM() {
                   </button>
                 )}
 
-                {/* ALERTA 2: QUALQUER ALTERAÇÃO OU APONTAMENTO DE CAMPO FEITO PELOS TÉCNICOS */}
                 {ordensComApontamento.length > 0 && (
                   <button
                     onClick={() => setModalApontamentos(true)}
                     className="flex items-center gap-1.5 bg-blue-600 text-white font-extrabold px-3 py-1 rounded-lg text-xs shadow-md hover:bg-blue-500 transition"
                   >
-                    <MessageCircleAlert className="h-4 w-4" />
+                    <Bell className="h-4 w-4 text-amber-300" />
                     <span>{ordensComApontamento.length} Alterações / Apontamentos</span>
                   </button>
                 )}
 
-                {/* BOTÃO CONSULTAR AGENDA FUTURA DA FÁBRICA */}
                 <button
                   onClick={() => setModalConsultorAgenda(true)}
                   className="flex items-center gap-1 bg-purple-700 hover:bg-purple-600 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm"
@@ -655,7 +644,6 @@ export default function AppPCM() {
               </>
             )}
 
-            {/* BOTÃO SOLICITAÇÃO FUTURA (DISPONÍVEL TAMBÉM PARA O TÉCNICO) */}
             <button
               onClick={() => setModalNovaPendencia(true)}
               className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm"
@@ -780,7 +768,7 @@ export default function AppPCM() {
         </nav>
       )}
 
-      {/* GRADE PRINCIPAL DE CARDS COM LARGURA MÍNIMA GARANTIDA NO PC */}
+      {/* GRADE PRINCIPAL DE CARDS */}
       <main className="max-w-7xl w-full mx-auto px-4 mt-3 overflow-x-auto custom-scrollbar">
         {modoVisao === 'SEMANA' ? (
           <div className="grid grid-cols-7 gap-3 min-w-[1150px] lg:min-w-0">
@@ -861,13 +849,13 @@ export default function AppPCM() {
         </div>
       )}
 
-      {/* MODAL PAINEL DE APONTAMENTOS DO SUPERVISOR (QUALQUER ALTERAÇÃO DA OS) */}
+      {/* MODAL PAINEL DE APONTAMENTOS DO SUPERVISOR */}
       {modalApontamentos && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className={`${bgCard} rounded-xl max-w-2xl w-full p-5 border shadow-2xl max-h-[85vh] flex flex-col`}>
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-sm font-black flex items-center gap-2">
-                <MessageCircleAlert className="h-5 w-5 text-blue-500" />
+                <Bell className="h-5 w-5 text-amber-500 animate-pulse" />
                 Alterações e Apontamentos dos Técnicos ({ordensComApontamento.length})
               </h3>
               <button onClick={() => setModalApontamentos(false)} className="text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
@@ -908,7 +896,7 @@ export default function AppPCM() {
         </div>
       )}
 
-      {/* MODAL CONSULTOR DE AGENDA FUTURA COM MARCADORES COLORIDOS */}
+      {/* MODAL CONSULTOR DE AGENDA FUTURA */}
       {modalConsultorAgenda && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className={`${bgCard} rounded-xl max-w-2xl w-full p-5 border shadow-2xl max-h-[90vh] flex flex-col`}>
@@ -1107,7 +1095,7 @@ export default function AppPCM() {
         </div>
       )}
 
-      {/* MODAL GERENCIAR */}
+      {/* MODAL GERENCIAR PENDÊNCIAS */}
       {modalGerenciarPendencias && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className={`${bgCard} rounded-xl max-w-xl w-full p-5 border shadow-2xl max-h-[90vh] flex flex-col`}>
@@ -1230,22 +1218,4 @@ function CartaoOS({ os, tema, onToggle, onComment }: { os: OS, tema: 'dark' | 'l
             {os.status === 'CONCLUIDO' && <CheckCircle2 className="h-3 w-3" />}
             {os.status === 'REPROGRAMADA' && <AlertCircle className="h-3 w-3" />}
             {os.status === 'EM_ANDAMENTO' && <Clock3 className="h-3 w-3" />}
-            <span>{os.status.replace('_', ' ')}</span>
-          </button>
-
-          <button
-            onClick={() => onComment(os)}
-            className={`p-1 rounded-lg border ${
-              os.comentarios 
-                ? 'bg-blue-600 text-white border-blue-700' 
-                : 'text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700'
-            }`}
-            title="Adicionar Apontamento / Comentário"
-          >
-            <MessageSquare className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+            <span>{os.status.replace('_', 
