@@ -2,8 +2,8 @@ import './globals.css'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'PCM Bryan - Automação & Manutenção',
-  description: 'Sistema de Acompanhamento de Ordens de Serviço Semanal',
+  title: 'PROGRAMAÇÃO SEMANAL PCM',
+  description: 'Sistema de Acompanhamento e Gestão de Ordens de Serviço Semanal',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
