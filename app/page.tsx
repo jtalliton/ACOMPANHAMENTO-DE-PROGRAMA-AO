@@ -372,7 +372,6 @@ export default function AppPCM() {
     })
   }
 
-  // VALIDAÇÃO DE SENHA AMPLIADA (ACEITA PRIMEIRO NOME DE QUALQUER SUPERVISOR DA ÁREA/SISTEMA OU "TOMATE")
   const confirmarSenhaModal = async () => {
     const digitada = senhaInput.trim().toLowerCase()
     const esperada = modalSenha.senhaEsperada.toLowerCase()
@@ -441,7 +440,6 @@ export default function AppPCM() {
     }
   }
 
-  // EXECUTAR AÇÃO DE PENDÊNCIA (SE JÁ ESTÁ EM MODO SUPERVISOR, PROCESSA DIRETO SEM PEDIR SENHA DE NOVO)
   const executarAcaoPendencia = async (acao: 'APROVAR' | 'REPROGRAMAR' | 'REJEITAR') => {
     if (!pendenciaAvaliando) return
 
@@ -487,13 +485,11 @@ export default function AppPCM() {
   const processarPendencia = async (acao: 'APROVAR' | 'REPROGRAMAR' | 'REJEITAR') => {
     if (!pendenciaAvaliando) return
 
-    // SE JÁ ESTÁ EM MODO SUPERVISOR, APROVA/REPROGRAMA DIRETO SEM PEDIR SENHA REPETIDAMENTE!
     if (modoPerfil === 'SUPERVISOR') {
       await executarAcaoPendencia(acao)
       return
     }
 
-    // Caso contrário, pede a senha com popup prioritário no topo
     setModalSenha({
       aberto: true,
       titulo: `${acao} Pendência de ${pendenciaAvaliando.tecnico_responsavel}`,
@@ -737,7 +733,8 @@ export default function AppPCM() {
         </div>
       </div>
 
-      {mensagensDoTecnico.length > 0 && (
+      {/* TRAVA DE PRIVACIDADE EXATA: SÓ EXIBE A FAIXA DE AVISO NO MODO TÉCNICO PARA O TÉCNICO SELECIONADO! */}
+      {modoPerfil === 'TECNICO' && tecnicoFiltro !== 'TODOS' && mensagensDoTecnico.length > 0 && (
         <div className="max-w-7xl w-full mx-auto px-4 mt-3">
           <div className="bg-blue-900 border border-blue-500/50 rounded-xl p-3 flex items-center justify-between gap-3 shadow-lg text-white">
             <div className="flex items-center gap-2">
@@ -1019,7 +1016,7 @@ export default function AppPCM() {
         </div>
       )}
 
-      {/* MODAL SENHA COM Z-INDEX PRIORITÁRIO Z-[100] (SEMPRE POR CIMA DE TUDO) */}
+      {/* MODAL SENHA */}
       {modalSenha.aberto && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[100] flex items-center justify-center p-4">
           <div className={`${bgCard} rounded-xl max-w-sm w-full p-5 border shadow-2xl`}>
