@@ -372,13 +372,28 @@ export default function AppPCM() {
     })
   }
 
+  // VALIDAÇÃO DE SENHA AMPLIADA (ACEITA PRIMEIRO NOME DE QUALQUER SUPERVISOR DA ÁREA/SISTEMA OU "TOMATE")
   const confirmarSenhaModal = async () => {
     const digitada = senhaInput.trim().toLowerCase()
     const esperada = modalSenha.senhaEsperada.toLowerCase()
 
-    if (digitada === esperada || digitada === SENHA_MESTRA) {
+    const supervisoresCadastrados = Array.from(new Set([
+      ...ordens.map(o => o.supervisor),
+      ...pendencias.map(p => p.supervisor)
+    ]))
+    .filter(Boolean)
+    .map(s => s.split(' ')[0].trim().toLowerCase())
+
+    const ehSenhaValida = 
+      digitada === SENHA_MESTRA.toLowerCase() || 
+      digitada === esperada ||
+      supervisoresCadastrados.includes(digitada)
+
+    if (ehSenhaValida) {
       setSenhaInput('')
-      await modalSenha.acao()
+      const acaoParaExecutar = modalSenha.acao
+      setModalSenha({ aberto: false, titulo: '', senhaEsperada: '', acao: async () => {} })
+      await acaoParaExecutar()
     } else {
       alert('Senha incorreta!')
       setSenhaInput('')
@@ -426,52 +441,65 @@ export default function AppPCM() {
     }
   }
 
+  // EXECUTAR AÇÃO DE PENDÊNCIA (SE JÁ ESTÁ EM MODO SUPERVISOR, PROCESSA DIRETO SEM PEDIR SENHA DE NOVO)
+  const executarAcaoPendencia = async (acao: 'APROVAR' | 'REPROGRAMAR' | 'REJEITAR') => {
+    if (!pendenciaAvaliando) return
+
+    let novoStatus: PendenciaFutura['status'] = 'APROVADA'
+    if (acao === 'REPROGRAMAR') novoStatus = 'REPROGRAMADA'
+    if (acao === 'REJEITAR') novoStatus = 'REJEITADA'
+
+    const { error } = await supabase
+      .from('pendencias_futuras')
+      .update({ 
+        status: novoStatus, 
+        numero_os: osAprovacao, 
+        justificativa_rejeicao: justificativaRejeicao,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', pendenciaAvaliando.id)
+
+    if (!error) {
+      let msgTexto = `Sua solicitação (${pendenciaAvaliando.descricao}) foi ${novoStatus}.`
+      if (osAprovacao) msgTexto += ` OS: ${osAprovacao}.`
+      if (justificativaRejeicao) msgTexto += ` Obs: ${justificativaRejeicao}.`
+
+      await supabase.from('mensagens').insert([{
+        remetente: 'Supervisor',
+        destinatario: pendenciaAvaliando.tecnico_responsavel,
+        area_linha: pendenciaAvaliando.area_linha,
+        assunto: `Retorno de Solicitação`,
+        conteudo: msgTexto,
+        tipo: 'RETORNO_PENDENCIA',
+        pendencia_id: pendenciaAvaliando.id
+      }])
+
+      alert(`Solicitação ${novoStatus} com sucesso!`)
+      setPendenciaAvaliando(null)
+      setOsAprovacao('')
+      setJustificativaRejeicao('')
+      carregarDados()
+    } else {
+      alert('Erro ao processar: ' + error.message)
+    }
+  }
+
   const processarPendencia = async (acao: 'APROVAR' | 'REPROGRAMAR' | 'REJEITAR') => {
     if (!pendenciaAvaliando) return
 
+    // SE JÁ ESTÁ EM MODO SUPERVISOR, APROVA/REPROGRAMA DIRETO SEM PEDIR SENHA REPETIDAMENTE!
+    if (modoPerfil === 'SUPERVISOR') {
+      await executarAcaoPendencia(acao)
+      return
+    }
+
+    // Caso contrário, pede a senha com popup prioritário no topo
     setModalSenha({
       aberto: true,
       titulo: `${acao} Pendência de ${pendenciaAvaliando.tecnico_responsavel}`,
-      senhaEsperada: 'johnathan',
+      senhaEsperada: pendenciaAvaliando.supervisor || 'johnathan',
       acao: async () => {
-        let novoStatus: PendenciaFutura['status'] = 'APROVADA'
-        if (acao === 'REPROGRAMAR') novoStatus = 'REPROGRAMADA'
-        if (acao === 'REJEITAR') novoStatus = 'REJEITADA'
-
-        const { error } = await supabase
-          .from('pendencias_futuras')
-          .update({ 
-            status: novoStatus, 
-            numero_os: osAprovacao, 
-            justificativa_rejeicao: justificativaRejeicao,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', pendenciaAvaliando.id)
-
-        if (!error) {
-          let msgTexto = `Sua solicitação (${pendenciaAvaliando.descricao}) foi ${novoStatus}.`
-          if (osAprovacao) msgTexto += ` OS: ${osAprovacao}.`
-          if (justificativaRejeicao) msgTexto += ` Obs: ${justificativaRejeicao}.`
-
-          await supabase.from('mensagens').insert([{
-            remetente: 'Supervisor',
-            destinatario: pendenciaAvaliando.tecnico_responsavel,
-            area_linha: pendenciaAvaliando.area_linha,
-            assunto: `Retorno de Solicitação`,
-            conteudo: msgTexto,
-            tipo: 'RETORNO_PENDENCIA',
-            pendencia_id: pendenciaAvaliando.id
-          }])
-
-          alert(`Solicitação ${novoStatus} com sucesso!`)
-          setPendenciaAvaliando(null)
-          setOsAprovacao('')
-          setJustificativaRejeicao('')
-          setModalSenha({ aberto: false, titulo: '', senhaEsperada: '', acao: async () => {} })
-          carregarDados()
-        } else {
-          alert('Erro ao processar: ' + error.message)
-        }
+        await executarAcaoPendencia(acao)
       }
     })
   }
@@ -599,7 +627,10 @@ export default function AppPCM() {
               <span className="text-[10px] font-bold text-slate-400">ÁREA:</span>
               <select 
                 value={areaFiltro}
-                onChange={(e) => setAreaFiltro(e.target.value)}
+                onChange={(e) => {
+                  setAreaFiltro(e.target.value)
+                  setTecnicoFiltro('TODOS')
+                }}
                 className="bg-transparent text-xs font-bold text-blue-600 dark:text-blue-400 focus:outline-none"
               >
                 <option value="TODAS">Todas as Áreas</option>
@@ -988,9 +1019,9 @@ export default function AppPCM() {
         </div>
       )}
 
-      {/* MODAL SENHA */}
+      {/* MODAL SENHA COM Z-INDEX PRIORITÁRIO Z-[100] (SEMPRE POR CIMA DE TUDO) */}
       {modalSenha.aberto && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[100] flex items-center justify-center p-4">
           <div className={`${bgCard} rounded-xl max-w-sm w-full p-5 border shadow-2xl`}>
             <div className="flex items-center gap-2 mb-3">
               <div className="bg-amber-500/20 text-amber-500 p-2 rounded-lg border border-amber-500/30">
@@ -1126,7 +1157,7 @@ export default function AppPCM() {
         </div>
       )}
 
-      {/* MODAL GERENCIAR */}
+      {/* MODAL GERENCIAR PENDÊNCIAS */}
       {modalGerenciarPendencias && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className={`${bgCard} rounded-xl max-w-xl w-full p-5 border shadow-2xl max-h-[90vh] flex flex-col`}>
