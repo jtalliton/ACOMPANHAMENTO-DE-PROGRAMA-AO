@@ -8,7 +8,7 @@ import {
   FileSpreadsheet, RefreshCw, Calendar, CheckCircle2,
   Clock3, AlertCircle, Users, LayoutGrid, CalendarDays,
   Sun, Moon, Trash2, Lock, Bell, Radio, 
-  ShieldCheck, MessageCircleAlert, X
+  ShieldCheck, X
 } from 'lucide-react'
 
 interface OS {
@@ -143,7 +143,6 @@ export default function AppPCM() {
   const [osAprovacao, setOsAprovacao] = useState('')
   const [justificativaRejeicao, setJustificativaRejeicao] = useState('')
 
-  // ORDENAÇÃO DUPLA FIXA (DATA + NÚMERO DA OS) PARA IMPEDIR QUE OS CARDS PULEM DE LUGAR
   const carregarDados = useCallback(async () => {
     setLoading(true)
     
@@ -194,7 +193,6 @@ export default function AppPCM() {
 
   const areasLista = useMemo(() => Array.from(new Set(ordens.map(o => o.area_linha || 'Primário'))).filter(Boolean).sort(), [ordens])
 
-  // LISTA DE TÉCNICOS FILTRADA POR ÁREA (SEM MISTURAR TÉCNICOS DE OUTRAS ÁREAS)
   const tecnicosLista = useMemo(() => {
     const ordensDaArea = areaFiltro === 'TODAS' 
       ? ordens 
@@ -211,7 +209,6 @@ export default function AppPCM() {
     return getWeekNumber(new Date())
   }, [ordens, semanaAtiva])
 
-  // FILTRAGEM COM ORDENAÇÃO ESTÁVEL
   const ordensFiltradas = useMemo(() => {
     return ordens.filter(os => {
       const matchSemana = os.tipo_semana === semanaAtiva
@@ -612,7 +609,6 @@ export default function AppPCM() {
               </select>
             </div>
 
-            {/* SELETOR DE TÉCNICO FILTRADO APENAS PELA ÁREA SELECIONADA */}
             <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${bgInput}`}>
               <Users className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
               <select 
@@ -661,7 +657,7 @@ export default function AppPCM() {
                     onClick={() => setModalApontamentos(true)}
                     className="flex items-center gap-1.5 bg-blue-600 text-white font-extrabold px-3 py-1 rounded-lg text-xs shadow-md hover:bg-blue-500 transition"
                   >
-                    <MessageCircleAlert className="h-4 w-4 text-amber-300" />
+                    <Bell className="h-4 w-4 text-amber-300" />
                     <span>{ordensComApontamento.length} Alterações / Apontamentos</span>
                   </button>
                 )}
@@ -721,7 +717,7 @@ export default function AppPCM() {
               </div>
             </div>
             <button
-              onClick={() => markingMensagemLida(mensagensDoTecnico[0].id)}
+              onClick={() => marcarMensagemLida(mensagensDoTecnico[0].id)}
               className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-lg whitespace-nowrap"
             >
               OK, Entendi
@@ -801,7 +797,7 @@ export default function AppPCM() {
         </nav>
       )}
 
-      {/* GRADE PRINCIPAL DE CARDS COM ORDENAÇÃO ESTÁVEL */}
+      {/* GRADE PRINCIPAL DE CARDS */}
       <main className="max-w-7xl w-full mx-auto px-4 mt-3 overflow-x-auto custom-scrollbar">
         {modoVisao === 'SEMANA' ? (
           <div className="grid grid-cols-7 gap-3 min-w-[1150px] lg:min-w-0">
@@ -888,7 +884,7 @@ export default function AppPCM() {
           <div className={`${bgCard} rounded-xl max-w-2xl w-full p-5 border shadow-2xl max-h-[85vh] flex flex-col`}>
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-sm font-black flex items-center gap-2">
-                <MessageCircleAlert className="h-5 w-5 text-amber-500 animate-pulse" />
+                <Bell className="h-5 w-5 text-amber-500 animate-pulse" />
                 Alterações e Apontamentos dos Técnicos ({ordensComApontamento.length})
               </h3>
               <button onClick={() => setModalApontamentos(false)} className="text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
@@ -1037,7 +1033,7 @@ export default function AppPCM() {
         </div>
       )}
 
-      {/* MODAL NOVA SOLICITAÇÃO FUTURA (SELETOR DE DATA CLICÁVEL + TEMPO EST. DECIMAIS / MINIMO 0) */}
+      {/* MODAL SOLICITAÇÃO FUTURA */}
       {modalNovaPendencia && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className={`${bgCard} rounded-xl max-w-md w-full p-5 border shadow-2xl`}>
@@ -1078,7 +1074,6 @@ export default function AppPCM() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[10px] font-extrabold text-slate-400 uppercase block mb-1">Data Proposta:</label>
-                  {/* DATA PROPOSTA CLICÁVEL EM QUALQUER PARTE DO CAMPO PARA ABRIR O SELETOR DE CALENDÁRIO */}
                   <input
                     type="date"
                     value={formPendencia.data_proposta}
@@ -1089,7 +1084,6 @@ export default function AppPCM() {
                 </div>
                 <div>
                   <label className="text-[10px] font-extrabold text-slate-400 uppercase block mb-1">Tempo Est. (Horas):</label>
-                  {/* PASSO 0.1 E MÍNIMO 0 PARA PERMITIR 0, 0.1, 0.2, 0.5, ETC. */}
                   <input
                     type="number"
                     step="0.1"
@@ -1132,7 +1126,7 @@ export default function AppPCM() {
         </div>
       )}
 
-      {/* MODAL GERENCIAR PENDÊNCIAS */}
+      {/* MODAL GERENCIAR */}
       {modalGerenciarPendencias && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className={`${bgCard} rounded-xl max-w-xl w-full p-5 border shadow-2xl max-h-[90vh] flex flex-col`}>
