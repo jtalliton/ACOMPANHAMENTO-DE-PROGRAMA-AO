@@ -38,7 +38,6 @@ const MAPA_CRAFT: Record<string, string> = {
   TERCFIX: 'TERCEIROS',
 }
 
-// A semana começa no DOMINGO (index 0) e termina no SÁBADO (index 6)
 const DIAS_CHAVE = [
   { chave: 'su', dia: 'DOM', offset: 0 },
   { chave: 'mo', dia: 'SEG', offset: 1 },
@@ -49,7 +48,6 @@ const DIAS_CHAVE = [
   { chave: 'sa', dia: 'SAB', offset: 6 },
 ]
 
-// Função para obter número da semana no ano
 function getWeekNumber(d: Date): number {
   const target = new Date(d.valueOf())
   const dayNr = (d.getDay() + 6) % 7
@@ -71,30 +69,28 @@ export function processarExcel(binaryData: any): ResultadoParse {
   if (!rows || rows.length === 0) {
     return {
       ordens: [],
-      meta: { area_linha: 'Geral', supervisor: 'Geral', senha_supervisor: '', numero_semana: 0, data_inicio_semana: '', tipo_semana: 'VIGENTE' }
+      meta: { area_linha: 'Primário', supervisor: 'Johnathan', senha_supervisor: 'johnathan', numero_semana: 40, data_inicio_semana: '', tipo_semana: 'VIGENTE' }
     }
   }
 
-  // 1. Extrair Metadados do Cabeçalho (Linhas 1 a 4)
-  let area_linha = 'Geral'
-  let supervisor = 'Desconhecido'
-  let dataInicioSemana: Date | null = null
+  // 1. Extrair Área e Supervisor da Linha 3
+  let area_linha = 'Primário'
+  let supervisor = 'Johnathan'
+  let dataInicioPlanilha: Date | null = null
 
-  for (let i = 0; i < Math.min(rows.length, 5); i++) {
+  for (let i = 0; i < Math.min(rows.length, 6); i++) {
     const linhaTexto = (rows[i] || []).join(' ')
     
-    // Detectar data da semana (ex: Weekly Schedule for week of Sep 27, 2026)
     if (linhaTexto.toLowerCase().includes('week of')) {
-      const match = linhaTexto.match(/week of\s+([A-Za-z]+\s+\d+,\s+\d{4})/i) || linhaTexto.match(/week of\s+([^\n\r]+)/i)
+      const match = linhaTexto.match(/week of\s+([A-Za-z]+\s+\d+,\s+\d{4})/i) || linhaTexto.match(/week of\s+([^\r\n]+)/i)
       if (match && match[1]) {
         const parsed = new Date(match[1].trim())
         if (!isNaN(parsed.getTime())) {
-          dataInicioSemana = parsed
+          dataInicioPlanilha = parsed
         }
       }
     }
 
-    // Detectar Área e Supervisor (ex: Primário   Supervisor Johnathan)
     if (linhaTexto.toLowerCase().includes('supervisor')) {
       const partes = linhaTexto.split(/supervisor/i)
       if (partes[0] && partes[0].trim()) {
@@ -106,36 +102,34 @@ export function processarExcel(binaryData: any): ResultadoParse {
     }
   }
 
-  // Se não achou a data no texto, usa a data atual
-  if (!dataInicioSemana) {
-    dataInicioSemana = new Date()
-    // Ajusta para o domingo mais recente
-    dataInicioSemana.setDate(dataInicioSemana.getDate() - dataInicioSemana.getDay())
+  if (!dataInicioPlanilha) {
+    dataInicioPlanilha = new Date()
   }
 
-  // Garantir que a data inicial seja exatamente o DOMINGO da semana
-  const domingoBase = new Date(dataInicioSemana)
+  const domingoBase = new Date(dataInicioPlanilha)
   domingoBase.setDate(domingoBase.getDate() - domingoBase.getDay())
 
-  // Calcular Número da Semana da Planilha vs Semana Atual Real
-  const numSemanaPlanilha = getWeekNumber(domingoBase)
-  const numSemanaAtualReal = getWeekNumber(new Date())
+  const hojeReal = new Date()
+  const domingoHojeReal = new Date(hojeReal)
+  domingoHojeReal.setDate(hojeReal.getDate() - hojeReal.getDay())
 
+  const numSemanaPlanilha = getWeekNumber(domingoBase)
+
+  // Comparação dinâmica real
   let tipo_semana: 'PASSADA' | 'VIGENTE' | 'PROXIMA' = 'VIGENTE'
-  if (numSemanaPlanilha < numSemanaAtualReal) {
+  if (domingoBase.getTime() < domingoHojeReal.getTime() - 86400000) {
     tipo_semana = 'PASSADA'
-  } else if (numSemanaPlanilha > numSemanaAtualReal) {
+  } else if (domingoBase.getTime() > domingoHojeReal.getTime() + 86400000) {
     tipo_semana = 'PROXIMA'
   }
 
-  // Extrair o primeiro nome do supervisor para usar como senha
-  const primeiroNomeSupervisor = supervisor.split(' ')[0].trim().toLowerCase()
+  const primeiroNomeSupervisor = supervisor.split(' ')[0].trim().toLowerCase() || 'johnathan'
 
-  // 2. Localizar Linha do Cabeçalho das Colunas
+  // 2. Localizar Linha do Cabeçalho
   let headerIndex = -1
   for (let i = 0; i < Math.min(rows.length, 15); i++) {
-    const rowStr = (rows[i] || []).join(' ').toLowerCase()
-    if (rowStr.includes('wo') || rowStr.includes('assigned') || rowStr.includes('craft')) {
+    const rowStr = (rows[i] || []).map(c => String(c || '').toLowerCase()).join(' ')
+    if (rowStr.includes('wo #') || (rowStr.includes('craft') && rowStr.includes('assigned'))) {
       headerIndex = i
       break
     }
@@ -144,20 +138,17 @@ export function processarExcel(binaryData: any): ResultadoParse {
   if (headerIndex === -1) headerIndex = 4
   const headers = (rows[headerIndex] || []).map(h => String(h || '').trim().toLowerCase())
 
-  // Mapear Índices das Colunas por Palavra-Chave
   const colIndex = (keys: string[]) => headers.findIndex(h => keys.some(k => h.includes(k)))
 
-  const idxWO = colIndex(['wo #', 'wo', 'os', 'numero'])
-  const idxOp = colIndex(['op #', 'op', 'operacao'])
-  const idxDesc = colIndex(['wo description', 'description', 'descriç'])
+  const idxWO = colIndex(['wo #', 'wo', 'os'])
+  const idxOp = colIndex(['op #', 'op'])
+  const idxDesc = colIndex(['wo description', 'description'])
   const idxOpDesc = colIndex(['op description', 'op desc'])
   const idxPersonnel = colIndex(['personnel n', 'matricula'])
-  const idxAssigned = colIndex(['assigned to', 'tecnico', 'responsavel'])
+  const idxAssigned = colIndex(['assigned to', 'tecnico'])
   const idxCraft = colIndex(['craft', 'especialidade'])
-  const idxStartDate = colIndex(['start date', 'data'])
   const idxEstHrs = colIndex(['est hrs', 'tempo', 'horas'])
 
-  // Mapear colunas dos dias (Su, Mo, Tu, We, Th, Fr, Sa)
   const idxDias: Record<string, number> = {}
   DIAS_CHAVE.forEach(d => {
     idxDias[d.chave] = headers.findIndex(h => h === d.chave)
@@ -165,15 +156,16 @@ export function processarExcel(binaryData: any): ResultadoParse {
 
   const ordens: ParsedOS[] = []
 
-  // 3. Processar Linhas de Dados
+  // 3. Processar Linhas
   for (let i = headerIndex + 1; i < rows.length; i++) {
     const row = rows[i]
-    if (!row || idxWO === -1 || !row[idxWO]) continue
+    if (!row || idxWO === -1) continue
 
-    const numero_os = String(row[idxWO] || '').trim()
-    if (!numero_os || numero_os.toLowerCase().includes('total')) continue
+    const valWO = String(row[idxWO] || '').trim()
+    if (!valWO || valWO.toLowerCase().includes('total') || valWO.toLowerCase().includes('weekly')) continue
 
-    const numero_operacao = idxOp !== -1 ? String(row[idxOp] || '0010').trim() : '0010'
+    const numero_os = valWO
+    const numero_operacao = idxOp !== -1 && row[idxOp] ? String(row[idxOp]).trim() : '0010'
     const rawCraft = idxCraft !== -1 ? String(row[idxCraft] || '').trim().toUpperCase() : 'MECPRM'
     const disciplina = MAPA_CRAFT[rawCraft] || rawCraft || 'MECANICA'
     const descricao = idxDesc !== -1 ? String(row[idxDesc] || 'Sem descrição').trim() : 'Sem descrição'
@@ -184,15 +176,13 @@ export function processarExcel(binaryData: any): ResultadoParse {
 
     let encontrouDiaAlocado = false
 
-    // Verificar em quais dias da semana há horas alocadas
     DIAS_CHAVE.forEach(d => {
       const col = idxDias[d.chave]
-      if (col !== -1 && col !== undefined && row[col] !== undefined && row[col] !== null && row[col] !== '') {
+      if (col !== -1 && col !== undefined && row[col] !== undefined && row[col] !== null && String(row[col]).trim() !== '') {
         const horasNoDia = parseFloat(String(row[col]).replace(',', '.'))
         if (!isNaN(horasNoDia) && horasNoDia > 0) {
           encontrouDiaAlocado = true
 
-          // Data exata do dia (domingoBase + offset de 0 a 6)
           const dataDia = new Date(domingoBase)
           dataDia.setDate(domingoBase.getDate() + d.offset)
           const dataIso = dataDia.toISOString().split('T')[0]
@@ -202,8 +192,8 @@ export function processarExcel(binaryData: any): ResultadoParse {
             numero_operacao,
             disciplina,
             area: 'Geral',
-            area_linha: area_linha || 'Geral',
-            supervisor: supervisor || 'Supervisão',
+            area_linha: area_linha || 'Primário',
+            supervisor: supervisor || 'Johnathan',
             descricao,
             sub_operacao,
             matricula_tecnico,
@@ -220,7 +210,6 @@ export function processarExcel(binaryData: any): ResultadoParse {
       }
     })
 
-    // Caso não tenha horas nos dias de Su a Sa, gera um card padrão no primeiro dia
     if (!encontrouDiaAlocado) {
       const dataIso = domingoBase.toISOString().split('T')[0]
       ordens.push({
@@ -228,8 +217,8 @@ export function processarExcel(binaryData: any): ResultadoParse {
         numero_operacao,
         disciplina,
         area: 'Geral',
-        area_linha: area_linha || 'Geral',
-        supervisor: supervisor || 'Supervisão',
+        area_linha: area_linha || 'Primário',
+        supervisor: supervisor || 'Johnathan',
         descricao,
         sub_operacao,
         matricula_tecnico,
@@ -248,8 +237,8 @@ export function processarExcel(binaryData: any): ResultadoParse {
   return {
     ordens,
     meta: {
-      area_linha: area_linha || 'Geral',
-      supervisor: supervisor || 'Supervisão',
+      area_linha: area_linha || 'Primário',
+      supervisor: supervisor || 'Johnathan',
       senha_supervisor: primeiroNomeSupervisor,
       numero_semana: numSemanaPlanilha,
       data_inicio_semana: domingoBase.toISOString().split('T')[0],
